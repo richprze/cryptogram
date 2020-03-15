@@ -1,27 +1,40 @@
 import csv
 import re
+import time
+
+logging = {'while_node': [], 'while_word': [], 'replace': [], 'update': [], 'match': []}
 
 def main():
     # phrase = Phrase("b am tmy ype ym avtlg jgyygp ykvt vtemtg ghug b mthe ype ym avtlg jgyygp ykvt deughc")
     phrase_input = input("Enter encrypted phrase: ")
+    num_words = int(input("Max number words in dict: "))
+    start = time.time()
     print(phrase_input)
-    phrase = Phrase(phrase_input)
+    phrase = Phrase(phrase_input, num_words)
     solving = True
     next_guess = 'node'
     phrase.get_latest_counts()
     num_guesses = {'node': 0, 'word': 0, 'total': 0}
     while solving:
         if next_guess == 'node':
+            t1 = time.time()
             phrase.make_next_node_guess()
             num_guesses['node'] += 1
             num_guesses['total'] += 1
         else:
+            t1 = time.time()
             res = phrase.make_next_word_guess()
             num_guesses['word'] += 1
             num_guesses['total'] += 1
             if not res:
                 phrase.guess_node = phrase.guess_node.prev()
                 # TODO: QUESTION: remove incremental guesses?
+                if not phrase.guess_node:
+                    print("FAILED. Ran out of word options")
+                    # TODO Try one_two_fallback. Or another dictionary.
+                    solving = False
+                    continue
+                
                 print("went back to previous node. now at {}".format(phrase.guess_node.word))
                 print("curr guess: {}; len(latest_options): {}".format(phrase.guess_node.curr_guess + 1, len(phrase.guess_node.latest_options)))
                 next_guess = 'word'
@@ -30,6 +43,12 @@ def main():
         phrase.latest_phrase = phrase.replace_with_guess_and_exclude()
         phrase.update_guess_tree_opts()
         result = phrase.status()
+        # log while loop time
+        if next_guess == 'node':
+            logging['while_node'].append(time.time() - t1)
+        else:
+            logging['while_word'].append(time.time() - t1)
+
         if result == "continue":
             next_guess = 'node'
         elif result == "failed":
@@ -37,8 +56,14 @@ def main():
         else:
             solving = False
             answer = phrase.get_solution()
-        print("Took {} guesses - {} node guesses, {} word guesses".format(num_guesses['total'], num_guesses['node'], num_guesses['word']))
 
+    print("Took {} guesses - {} node guesses, {} word guesses".format(num_guesses['total'], num_guesses['node'], num_guesses['word']))
+    print("Took {} seconds".format(time.time()-start))
+    print("initial counts:")
+    for k, v in phrase.init_phrase_opts.items():
+        print("{} | {}".format(k, len(v)))
+
+    return logging
 
 class Node:
     def __init__(self, word, options):
@@ -66,16 +91,17 @@ class Node:
 
 
 class Phrase:
-    def __init__(self, phrase):
+    def __init__(self, phrase, num_words=5000):
         # initial setup
         self.phrase = phrase
-        self.words = top_5K_words_rank_dict()
+        # self.words = top_5K_words_rank_dict()
         # TODO: merged list is too big and takes too long
         # OPTIONS: 
         #   start with small list but go to deeper list when no solutions
         #   start with small list but go to deeper list when one word hits zero?
         #   create new list that is bigger than 5K but smaller than 330K that is faster. 50K?
-        # self.words = merged_word_dict()
+        self.words, self.one_two_fallback = merged_word_dict(num_words=num_words)
+        print("{} words in dict.".format(len(self.words)))
         self.numbers = list_to_numbers(self.words)
         self.phrase_list = self.phrase.split(" ")
         self.init_phrase_opts = self.setup_phrase_word_list()
@@ -130,6 +156,7 @@ class Phrase:
             marker = marker.next()
         return None
 
+    # Adds guessed letters to the guesses dict
     def word_to_guesses(self, node):
         phrase_word = node.word
         guess_word = node.latest_options[node.curr_guess]
@@ -150,6 +177,7 @@ class Phrase:
                 print("{} already removed from guesses".format(r))
 
     def replace_with_guess_and_exclude(self):
+        t2 = time.time()
         exclude = "".join([v for k, v in self.guesses.items()])
         new_phrase = []
         next = self.guess_tree
@@ -165,16 +193,19 @@ class Phrase:
             new_phrase.append("".join(new_word))
             next.latest_word = "".join(new_word)
             next = next.next()
+        logging['replace'].append(time.time()-t2)
 
         return new_phrase
 
 
     def update_guess_tree_opts(self):
+        t3 = time.time()
         next = self.guess_node.next()
         while next:
             new_opts = return_match_list(next.options, next.latest_word)
             next.latest_options = new_opts
             next = next.next()
+        logging['update'].append(time.time() - t3)
 
 
     def make_next_node_guess(self):
@@ -338,10 +369,12 @@ def update_phrase_opts(phrase, phrase_opts, new_phrase):
     return phrase_opts_1
 
 def return_match_list(options, match_phrase):
+    t4 = time.time()
     new_opts = []
     for opt in options:
         if re.match("".join(match_phrase), opt):
             new_opts.append(opt)
+    logging['match'].append(time.time()-t4)
     return new_opts
 
 def words_freq_dict(fn='words1.txt'):
@@ -379,6 +412,7 @@ def cont_rank_dict(conts, words):
 
 def top_5K_words_rank_dict(fn='top5K.csv'):
     with open(fn) as f:
+        print(__name__)
         reader = csv.reader(f)
         words = {}
         cnt = 0
@@ -391,8 +425,11 @@ def top_5K_words_rank_dict(fn='top5K.csv'):
             cnt += 1
         return words
 
-def merged_word_dict(fn1='top5K.csv', fn2='words1.txt'):
+def merged_word_dict(fn1='top5K.csv', fn2='words1.txt', num_words=50000):
     # get first list
+    num_words = max(5000, num_words)
+    num = 0
+    one_two_fallback = {}
     with open(fn1) as f:
         reader = csv.reader(f)
         words = {}
@@ -405,6 +442,7 @@ def merged_word_dict(fn1='top5K.csv', fn2='words1.txt'):
             if not words.get(row[0].lower()):
                 words[row[0].lower()] = int(row[1])
                 max_rank = max(max_rank, int(row[1]))
+                num += 1
             cnt += 1
 
     with open(fn2) as f:
@@ -412,10 +450,17 @@ def merged_word_dict(fn1='top5K.csv', fn2='words1.txt'):
         for line in f.readlines():
             # keep highest rank
             if not words.get(line.split()[0].lower()):
-                words[line.split()[0].lower()] = cnt
+                # Only use one and two letter words from 5K list
+                if len(line.split()[0]) > 2:
+                    words[line.split()[0].lower()] = cnt
+                    num += 1
+                else:
+                    one_two_fallback[line.split()[0].lower()] = cnt
             cnt += 1
+            if num >= num_words:
+                break
 
-    return words
+    return words, one_two_fallback
 
 
 def top_5K_words_full_dict(fn='top5K.csv'):
@@ -490,6 +535,9 @@ def get_phrase_word_opts(phrase, numbers, words):
         phrase_list_options[phrase_word] = opts_ordered
     return phrase_list_options
 
+def print_logs(logs):
+    for log, vals in logs.items():
+        print("{} - min: {} | max: {} | avg: {}".format(log, min(vals), max(vals), sum(vals)/len(vals)))
 
 if __name__ == "__main__":
     main()
