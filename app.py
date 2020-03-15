@@ -297,76 +297,6 @@ class Phrase:
         print(" ".join(solved_phrase))
         return solved_phrase
 
-def testing_setup():
-    words = top_5K_words_rank_dict()
-    numbers = list_to_numbers(words)
-    phrase = "b am tmy ype ym avtlg jgyygp ykvt vtemtg ghug b mthe ype ym avtlg jgyygp ykvt deughc"
-    phrase_opts = get_phrase_word_opts(phrase, numbers, words)
-    guesses = {}
-    for k, v in phrase_opts.items():
-        guesses[k] = len(v)
-    guess_order = sorted(guesses, key=guesses.get)
-    return words, numbers, phrase, phrase_opts, guess_order
-
-
-def check_guess(opts):
-    one_word = 0
-    corrects = []
-    no_words = 0
-    fails = []
-    for k, v in opts.items():
-        if len(v) == 1:
-            one_word += 1
-            corrects.append((k,v))
-        elif len(v) == 0:
-            no_words += 1
-            fails.append(k)
-    if no_words > 0:
-        print("FAILED")
-        print(fails)
-    elif one_word > 0:
-        print("{} words solved, {} words to go".format(one_word, len(opts) - one_word))
-    else:
-        print("no words solved yet")
-
-def replace_with_guess(phrase, guess):
-    phrase = phrase.split(" ")
-    new_phrase = []
-    for word in phrase:
-        new_word = []
-        for l in word:
-            if guess.get(l):
-                new_word.append(guess[l])
-            else:
-                new_word.append('.')
-        new_phrase.append("".join(new_word))
-
-    return new_phrase
-
-def replace_with_guess_and_exclude(phrase, guess):
-    phrase = phrase.split(" ")
-    exclude = "".join([v for k, v in guess.items()])
-    new_phrase = []
-    for word in phrase:
-        new_word = []
-        for l in word:
-            if guess.get(l):
-                new_word.append(guess[l])
-            else:
-                new_word.append("[^{}]".format(exclude))
-        new_phrase.append("".join(new_word))
-
-    return new_phrase
-
-def update_phrase_opts(phrase, phrase_opts, new_phrase):
-    phrase_opts_1 = {}
-    for i in range(0, len(new_phrase)):
-        # TODO: also remove options that have a guessed letter that is not in pattern
-        # e.g. gypr. guessed r=t and e=s -> keep 'cart', discard 'fast'
-        new_opts = return_match_list(phrase_opts[phrase.split(" ")[i]], new_phrase[i])
-        phrase_opts_1[phrase.split(" ")[i]] = new_opts
-
-    return phrase_opts_1
 
 def return_match_list(options, match_phrase):
     t4 = time.time()
@@ -507,33 +437,6 @@ def list_to_numbers(words):
     for word in words:
         numbers[word] = word_to_number(word)
     return numbers
-
-def get_phrase_word_opts_old(phrase, numbers, words):
-    phrase_list = phrase.split(" ")
-    phrase_list_nums = list_to_numbers(phrase_list)
-    phrase_list_options = {}
-    for phrase_word, struct in phrase_list_nums.items():
-        opts = []
-        for word, num in numbers.items():
-            if num == struct:
-                opts.append(word)
-        phrase_list_options[phrase_word] = opts
-    return phrase_list_options
-
-def get_phrase_word_opts(phrase, numbers, words):
-    phrase_list = phrase.split(" ")
-    phrase_list_nums = list_to_numbers(phrase_list)
-    phrase_list_options = {}
-    for phrase_word, struct in phrase_list_nums.items():
-        opts = {}
-        for word, num in numbers.items():
-            if num == struct:
-                # word: rank
-                opts[word] = words[word]
-        # sort dict with rank
-        opts_ordered = sorted(opts, key=opts.get)
-        phrase_list_options[phrase_word] = opts_ordered
-    return phrase_list_options
 
 def print_logs(logs):
     for log, vals in logs.items():
