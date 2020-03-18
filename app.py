@@ -69,6 +69,7 @@ class Node:
     def __init__(self, word, options):
         self.word = word
         self.options = options
+        self.locked_options = self.options
         self.latest_options = self.options
         self.latest_word = "".join(["'" if x == "'" else "." for x in word])
         self.curr_guess = None
@@ -110,7 +111,7 @@ class Phrase:
             self.init_guess_counts[k] = len(v)
         self.guess_order = sorted(self.init_guess_counts, key=self.init_guess_counts.get)
         self.guess_tree = None
-        self.last_node = self.setup_guess_tree()
+        self.setup_guess_tree()
 
         # For guessing
         self.guesses = {}
@@ -144,8 +145,6 @@ class Phrase:
             else:
                 latest.set_next(Node(self.guess_order[i], self.init_phrase_opts[self.guess_order[i]]))
                 latest = latest.next()
-        return latest
-
 
     # Functions for guessing
     def return_node_by_word(self, word):
