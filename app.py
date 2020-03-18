@@ -34,14 +34,22 @@ def main():
                     # TODO Try one_two_fallback. Or another dictionary.
                     solving = False
                     continue
-                
+
+                phrase.latest_phrase = phrase.replace_with_guess_and_exclude()
+                # TODO: run update with all options
+                phrase.update_guess_tree_opts()
+                # TODO: updated locked options
+                phrase.set_locked_options("all")
+
                 print("went back to previous node. now at {}".format(phrase.guess_node.word))
                 print("curr guess: {}; len(latest_options): {}".format(phrase.guess_node.curr_guess + 1, len(phrase.guess_node.latest_options)))
                 next_guess = 'word'
                 continue
 
         phrase.latest_phrase = phrase.replace_with_guess_and_exclude()
-        phrase.update_guess_tree_opts()
+        # phrase.update_guess_tree_opts()
+        # TODO: this doesn't work!!!!:
+        phrase.update_guess_tree_opts(opt_type="locked")
         result = phrase.status()
         # log while loop time
         if next_guess == 'node':
@@ -195,14 +203,21 @@ class Phrase:
         return new_phrase
 
 
-    def update_guess_tree_opts(self):
+    def update_guess_tree_opts(self, opt_type="all"):
         t3 = time.time()
         next = self.guess_node.next()
         while next:
-            new_opts = return_match_list(next.options, next.latest_word)
+            options = next.options if opt_type == "all" else next.locked_options
+            new_opts = return_match_list(options, next.latest_word)
             next.latest_options = new_opts
             next = next.next()
         logging['update'].append(time.time() - t3)
+
+    def set_locked_options(self, opt_type):
+        next = self.guess_node.next()
+        while next:
+            next.locked_options = next.latest_options if opt_type == 'latest' else next.options
+            next = next.next()
 
 
     def make_next_node_guess(self):
@@ -216,10 +231,7 @@ class Phrase:
         self.guess_node.curr_guess = 0
         self.word_to_guesses(self.guess_node)
         
-        next = self.guess_node.next()
-        while next:
-            next.locked_options = next.latest_options
-            next = next.next()
+        self.set_locked_options("latest")
 
     def make_next_word_guess(self):
         if (self.guess_node.curr_guess + 1) < len(self.guess_node.latest_options):
@@ -250,14 +262,14 @@ class Phrase:
         one_phrase_words = []
         one_answers = []
         next = self.guess_tree
-        print("phrase word | num options | num latest options")
+        print("phrase word | num options | num latest options | num locked options")
         while next:
             counts = "{} | {} | ".format(next.word, len(next.options))
             if next.curr_guess is not None:
                 num_ones += 1
                 one_phrase_words.append(next.word)
                 one_answers.append(next.latest_options[next.curr_guess])
-                counts += "1 | {}".format(next.latest_options[next.curr_guess])
+                counts += "1 | {} | {}".format(next.latest_options[next.curr_guess], len(next.locked_options))
             elif len(next.latest_options) == 0:
                 num_zeroes += 1
                 zero_phrase_words.append(next.word)
@@ -266,9 +278,9 @@ class Phrase:
                 num_ones += 1
                 one_phrase_words.append(next.word)
                 one_answers.extend(next.latest_options)
-                counts += "1 | {}".format(next.latest_options[0])
+                counts += "1 | {} | {}".format(next.latest_options[0], len(next.locked_options))
             else:
-                counts += "{}".format(len(next.latest_options))
+                counts += "{} | {}".format(len(next.latest_options), len(next.locked_options))
             print(counts)
             next = next.next()
         return num_zeroes, zero_phrase_words, num_ones, one_phrase_words, one_answers
