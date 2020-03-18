@@ -166,8 +166,6 @@ class Phrase:
                 node.incremental_guesses.append(phrase_word[i])
 
     def remove_word_to_guesses(self, node):
-        phrase_word = node.word
-        guess_word = node.latest_options[node.curr_guess]
         for r in node.incremental_guesses:
             if self.guesses.get(r):
                 del(self.guesses[r])
@@ -217,6 +215,11 @@ class Phrase:
             return False
         self.guess_node.curr_guess = 0
         self.word_to_guesses(self.guess_node)
+        
+        next = self.guess_node.next()
+        while next:
+            next.locked_options = next.latest_options
+            next = next.next()
 
     def make_next_word_guess(self):
         if (self.guess_node.curr_guess + 1) < len(self.guess_node.latest_options):
