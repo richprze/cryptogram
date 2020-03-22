@@ -170,12 +170,9 @@ class Phrase:
 
 
     def update_word_list_opts(self, opt_type="all"):
-        print("updating word list opts")
         t3 = time.time()
         i = self.i + 1
-        print("i: ", i)
         for node in self.word_list[i:]:
-            print("updating {} node".format(node.word))
             options = node.options if opt_type == "all" else node.locked_options
             new_opts = return_match_list(options, node.latest_word)
             node.latest_options = new_opts
@@ -198,23 +195,16 @@ class Phrase:
 
     def make_next_word_guess(self):
         self.word_list[self.i].curr_guess += 1
+        self.remove_word_to_guesses(self.word_list[self.i])
+        self.word_list[self.i].incremental_guesses = []
         if self.word_list[self.i].curr_guess < self.word_list[self.i].num_latest_options():
             print("making next word guess")
-            # remove last guesses within node
-            self.remove_word_to_guesses(self.word_list[self.i])
-
-            # go to next guess
-            self.word_list[self.i].incremental_guesses = []
             self.word_to_guesses(self.word_list[self.i])
             return True
         else:
             print("no more word guesses. removing guesses within node.")
             print("You must go back to the previous node and go to the next word guess there")
-            self.remove_word_to_guesses(self.word_list[self.i])
             self.word_list[self.i].curr_guess = None
-            self.word_list[self.i].incremental_guesses = []
-            # TODO: do I need to reset latest_word? Or will that be handled?
-            # SHOULD get updated with next replace_and_remnove
             return False
 
     # functions to check results
@@ -224,25 +214,22 @@ class Phrase:
         zero_phrase_words = []
         one_phrase_words = []
         one_answers = []
-        print("phrase word | num options | num latest options | num locked options")
+        print("phrase word | num options | num latest options | num locked options | cur guess")
         for node in self.word_list:
-            counts = "{} | {} | ".format(node.word, node.num_options())
+            counts = "{} | {} | {} | {}".format(node.word, node.num_options(), node.num_latest_options(), node.num_locked_options())
             if node.curr_guess is not None:
                 num_ones += 1
                 one_phrase_words.append(node.word)
                 one_answers.append(node.latest_options[node.curr_guess])
-                counts += "1 | {} | {}".format(node.latest_options[node.curr_guess], node.num_locked_options())
+                counts += " | {}".format(node.latest_options[node.curr_guess])
             elif node.num_latest_options() == 0:
                 num_zeroes += 1
                 zero_phrase_words.append(node.word)
-                counts += "0"
             elif node.num_latest_options() == 1:
                 num_ones += 1
                 one_phrase_words.append(node.word)
                 one_answers.extend(node.latest_options)
-                counts += "1 | {} | {}".format(node.latest_options[0], node.num_locked_options())
-            else:
-                counts += "{} | {}".format(node.num_latest_options(), node.num_locked_options())
+                counts += " | {}".format(node.latest_options[0])
             print(counts)
         return num_zeroes, zero_phrase_words, num_ones, one_phrase_words, one_answers
 
