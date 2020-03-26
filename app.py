@@ -28,15 +28,15 @@ def main():
             num_guesses['total'] += 1
             if not res:
                 phrase.i -= 1
-                # TODO: QUESTION: remove incremental guesses?
                 if phrase.i < 0:
                     print("FAILED. Ran out of word options")
                     # TODO Try one_two_fallback. Or another dictionary.
                     solving = False
                     continue
 
+                # Reset to previous node's guess state
                 phrase.latest_phrase = phrase.replace_with_guess_and_exclude()
-                # run update with all options
+                # run update with all options to go back to previous node's guess state
                 phrase.update_word_list_opts()
                 # updated locked options
                 phrase.set_locked_options("all")
