@@ -49,11 +49,9 @@ def main():
         phrase.update_word_list_opts()
         print("\nguess #{}".format(num_guesses['total']))
         result = phrase.status()
+
         # log while loop time
-        if next_guess == 'node':
-            logging['while_node'].append(time.time() - t1)
-        else:
-            logging['while_word'].append(time.time() - t1)
+        logging['while_'+next_guess].append(time.time() - t1)
 
         if result == "continue":
             next_guess = 'node'
@@ -65,8 +63,6 @@ def main():
 
     print("Took {} guesses - {} node guesses, {} word guesses".format(num_guesses['total'], num_guesses['node'], num_guesses['word']))
     print("Took {} seconds".format(time.time()-start))
-    print("initial counts:")
-    print("TODO...")
 
     return logging
 
