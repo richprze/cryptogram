@@ -54,6 +54,7 @@ def main():
         logging['while_'+next_guess].append(time.time() - t1)
 
         if result == "continue":
+            phrase.sort_word_list()
             next_guess = 'node'
         elif result == "failed":
             next_guess = 'word'
@@ -120,7 +121,7 @@ class Phrase:
 
     def sort_word_list(self):
         new_order = self.word_list[:self.i+1]
-        new_order.extend(sorted(self.word_list[self.i+1:], key=lambda word: word.num_options()))
+        new_order.extend(sorted(self.word_list[self.i+1:], key=lambda word: word.num_latest_options()))
         self.word_list = new_order
 
     # Adds guessed letters to the guesses dict
