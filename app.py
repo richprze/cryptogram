@@ -46,7 +46,8 @@ def main():
                 continue
 
         phrase.latest_phrase = phrase.replace_with_guess_and_exclude()
-        phrase.update_word_list_opts(opt_type="locked")
+        phrase.update_word_list_opts()
+        print("\nguess #{}".format(num_guesses['total']))
         result = phrase.status()
         # log while loop time
         if next_guess == 'node':
@@ -73,7 +74,6 @@ class Node:
     def __init__(self, word, options):
         self.word = word
         self.options = options
-        self.locked_options = self.options
         self.node_options = []
         self.latest_options = self.options
         self.latest_word = "".join(["'" if x == "'" else "." for x in word])
@@ -82,9 +82,6 @@ class Node:
 
     def num_options(self):
         return len(self.options)
-
-    def num_locked_options(self):
-        return len(self.locked_options)
 
     def num_latest_options(self):
         return len(self.latest_options)
@@ -103,7 +100,6 @@ class Phrase:
         self.i = -1
         # keep order up to curr_i, sort rest
         self.sort_word_list()
-        # self.word_list = sorted(self.word_list, key=lambda word: word.num_options())
 
         # For guessing
         self.guesses = {}
@@ -173,17 +169,10 @@ class Phrase:
         t3 = time.time()
         i = self.i + 1
         for node in self.word_list[i:]:
-            # options = node.options if opt_type == "all" else node.locked_options
-            print("self.i = {}, and len(node_options) = {}".format(self.i, len(node.node_options)))
-            options = node.node_options[self.i]# if self.i > 0 else node.options
+            options = node.node_options[self.i]
             new_opts = return_match_list(options, node.latest_word)
             node.latest_options = new_opts
         logging['update'].append(time.time() - t3)
-
-    def set_locked_options(self, opt_type):
-        i = self.i + 1
-        for node in self.word_list[i:]:
-            node.locked_options = node.latest_options if opt_type == 'latest' else node.options
 
     def set_node_options(self):
         i = self.i + 1
@@ -193,7 +182,6 @@ class Phrase:
     def remove_node_option(self):
         i = self.i + 2
         for node in self.word_list[i:]:
-            print("i to remove = {}, len node_options = {}".format(i, len(node.node_options)))
             node.node_options.pop()
 
     def make_next_node_guess(self):
@@ -203,7 +191,6 @@ class Phrase:
             return False
         self.word_list[self.i].curr_guess = 0
         self.word_to_guesses(self.word_list[self.i])
-        self.set_locked_options("latest")
         self.set_node_options()
 
     def make_next_word_guess(self):
@@ -227,9 +214,9 @@ class Phrase:
         zero_phrase_words = []
         one_phrase_words = []
         one_answers = []
-        print("phrase word | num options | num latest options | num locked options | cur guess")
+        print("phrase word | num options | num latest options | cur guess")
         for node in self.word_list:
-            counts = "{} | {} | {} | {}".format(node.word, node.num_options(), node.num_latest_options(), node.num_locked_options())
+            counts = "{} | {} | {}".format(node.word, node.num_options(), node.num_latest_options())
             if node.curr_guess is not None:
                 num_ones += 1
                 one_phrase_words.append(node.word)
@@ -255,7 +242,7 @@ class Phrase:
             print("Success! All words solved! The answer is:")
             return "solved"
         else:
-            print("Keep going (at node: {}.".format(self.i))
+            print("Keep going (at node: {}).".format(self.i))
             return "continue"
 
     def get_solution(self):
