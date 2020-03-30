@@ -9,20 +9,23 @@ def main():
     phrase_input = input("Enter encrypted phrase: ")
     num_words = int(input("Max number words in dict: "))
     start = time.time()
-    print(phrase_input)
     phrase = Phrase(phrase_input, num_words)
     solving = True
     next_guess = 'node'
-    phrase.get_latest_counts()
     num_guesses = {'node': 0, 'word': 0, 'total': 0}
+    phrase.get_latest_counts()
     while solving:
+        t1 = time.time()
         if next_guess == 'node':
-            t1 = time.time()
-            phrase.make_next_node_guess()
+            res = phrase.make_next_node_guess()
+            if not res:
+                print("FAILED. Ran out of nodes")
+                solving = False
+                continue
+
             num_guesses['node'] += 1
             num_guesses['total'] += 1
         else:
-            t1 = time.time()
             res = phrase.make_next_word_guess()
             num_guesses['word'] += 1
             num_guesses['total'] += 1
@@ -35,17 +38,16 @@ def main():
                     continue
 
                 # Reset to previous node's guess state
-                phrase.latest_phrase = phrase.replace_with_guess_and_exclude()
+                phrase.update_regex_with_guess()
 
                 # remove prev i node_options
                 phrase.remove_node_option()
 
-                print("went back to previous node. now at {}".format(phrase.word_list[phrase.i].word))
-                print("curr guess: {}; len(latest_options): {}".format(phrase.word_list[phrase.i].curr_guess + 1, len(phrase.word_list[phrase.i].latest_options)))
+                print("went back to previous node. now at {}, curr guess: {}, len(latest_options): {}".format(phrase.word_list[phrase.i].word, phrase.word_list[phrase.i].curr_guess + 1, len(phrase.word_list[phrase.i].latest_options)))
                 next_guess = 'word'
                 continue
 
-        phrase.latest_phrase = phrase.replace_with_guess_and_exclude()
+        phrase.update_regex_with_guess()
         phrase.update_word_list_opts()
         print("\nguess #{}".format(num_guesses['total']))
         result = phrase.status()
@@ -73,7 +75,7 @@ class Node:
         self.options = options
         self.node_options = []
         self.latest_options = self.options
-        self.latest_word = "".join(["'" if x == "'" else "." for x in word])
+        self.regex_word = "".join(["'" if x == "'" else "." for x in word])
         self.curr_guess = None
         self.incremental_guesses = []
 
@@ -91,7 +93,7 @@ class Phrase:
         self.words, self.one_two_fallback = merged_word_dict(num_words=num_words)
         print("{} words in dict.".format(len(self.words)))
         self.numbers = list_to_numbers(self.words)
-        self.phrase_list = self.phrase.split(" ")
+        self.phrase_list = self.phrase.replace(',', '').replace('.', '').replace('!','').replace(';','').replace('?','').split(" ")
         self.word_list = []
         self.setup_phrase_word_list()
         self.i = -1
@@ -100,7 +102,6 @@ class Phrase:
 
         # For guessing
         self.guesses = {}
-        self.latest_phrase = None
 
     # Functions for initial setup
     def setup_phrase_word_list(self):
@@ -138,14 +139,10 @@ class Phrase:
         for r in node.incremental_guesses:
             if self.guesses.get(r):
                 del(self.guesses[r])
-                print("{} removed from guesses".format(r))
-            else:
-                print("{} already removed from guesses".format(r))
 
-    def replace_with_guess_and_exclude(self):
+    def update_regex_with_guess(self):
         t2 = time.time()
         exclude = "".join([v for k, v in self.guesses.items()])
-        new_phrase = []
         for node in self.word_list:
             new_word = []
             for l in node.word:
@@ -155,19 +152,16 @@ class Phrase:
                     new_word.append(l)
                 else:
                     new_word.append("[^{}]".format(exclude))
-            new_phrase.append("".join(new_word))
-            node.latest_word = "".join(new_word)
+            node.regex_word = "".join(new_word)
         logging['replace'].append(time.time()-t2)
 
-        return new_phrase
-
-
-    def update_word_list_opts(self, opt_type="all"):
+    # trim the word options list down based on new regex word
+    def update_word_list_opts(self):
         t3 = time.time()
         i = self.i + 1
         for node in self.word_list[i:]:
             options = node.node_options[self.i]
-            new_opts = return_match_list(options, node.latest_word)
+            new_opts = return_match_list(options, node.regex_word)
             node.latest_options = new_opts
         logging['update'].append(time.time() - t3)
 
@@ -190,6 +184,8 @@ class Phrase:
         self.word_to_guesses(self.word_list[self.i])
         self.set_node_options()
 
+        return True
+
     def make_next_word_guess(self):
         self.word_list[self.i].curr_guess += 1
         self.remove_word_to_guesses(self.word_list[self.i])
@@ -199,8 +195,7 @@ class Phrase:
             self.word_to_guesses(self.word_list[self.i])
             return True
         else:
-            print("no more word guesses. removing guesses within node.")
-            print("You must go back to the previous node and go to the next word guess there")
+            print("no more word guesses")
             self.word_list[self.i].curr_guess = None
             return False
 
@@ -246,8 +241,8 @@ class Phrase:
         solution = {}
         for node in self.word_list:
             if node.curr_guess is None:
-                node.latest_word = node.latest_options[0]
-            solution[node.word] = node.latest_word
+                node.regex_word = node.latest_options[0]
+            solution[node.word] = node.regex_word
         solved_phrase = []
         for word in self.phrase_list:
             solved_phrase.append(solution[word])
